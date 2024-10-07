@@ -6,43 +6,51 @@ const rl = readline.createInterface({
     output: process.stdout,
   });
 
-// Ouvre la connection à la db
-let db = new sqlite3.Database('./tasksmanager.db', sqlite3.OPEN_READWRITE, (err) => {
-    if (err) {
-        return console.error(err.message);
-    }
+let db;
 
-    console.log('[DB-Task-Manager] : Connected to the database');
-});
+function connexionDB() {
+  // Ouvre la connection à la db
+  db = new sqlite3.Database('./tasksmanager.db', sqlite3.OPEN_READWRITE, (err) => {
+      if (err) {
+          return console.error(err.message);
+      }
+  
+      console.log('[DB-Task-Manager] : Connected to the database');
+      return db;
+  });
+}
 
-// Vérifier si la table "tasks" existe
-db.get(`SELECT name FROM sqlite_master WHERE type='table' AND name='tasks';`, (err, row) => {
-    if (err) {
-        return console.error(err.message);
-    }
-    console.log('[DB-Task-Manager] : The table already exists. It is loaded.')
-    
-    if (!row) {
-        console.log('Table does not exist. Creation in progress..');
-        
-        // Créer la table "tasks" si elle n'existe pas
-        db.run(`CREATE TABLE tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            description TEXT NOT NULL,
-            status TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );`, (err) => {
-            if (err) {
-                return console.error(err.message);
-            }
-            console.log('The table was successfully created');
-        });
-    }
-});
+function checkTable() {
+  // Vérifier si la table "tasks" existe
+  db.get(`SELECT name FROM sqlite_master WHERE type='table' AND name='tasks';`, (err, row) => {
+      if (err) {
+          return console.error(err.message);
+      }
+      console.log('[DB-Task-Manager] : The table already exists. It is loaded.')
+      
+      if (!row) {
+          console.log('Table does not exist. Creation in progress..');
+          
+          // Créer la table "tasks" si elle n'existe pas
+          db.run(`CREATE TABLE tasks (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              description TEXT NOT NULL,
+              status TEXT NOT NULL,
+              priority TEXT NOT NULL,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );`, (err) => {
+              if (err) {
+                  return console.error(err.message);
+              }
+              console.log('The table was successfully created');
+          });
+      }
+  });
+}
 
 function allTasks(callback) {
-    db.all(`SELECT id, description, status, created_at, updated_at FROM tasks`, [], (err, rows) => {
+    db.all(`SELECT id, description, status, created_at, updated_at, priority FROM tasks`, [], (err, rows) => {
         if (err) {
             return console.error(err.message);
         }
@@ -53,7 +61,7 @@ function allTasks(callback) {
         } else {
             rows.forEach((row, index) => {
                 const statusSymbol = row.status === 'Completed' ? '✔️' : '❗';
-                console.log(`#${index + 1} ${row.description}`);
+                console.log(`#${index + 1} "${row.description}" | ${row.priority}`);
                 console.log(`   Status    : ${row.status} ${statusSymbol}`);
                 console.log(`   Created at: ${row.created_at}`);
                 console.log(`   Updated at: ${row.updated_at}`);
@@ -68,7 +76,7 @@ function allTasks(callback) {
   }
 
   function allTaskSorted() {
-    db.all(`SELECT id, description, status, created_at, updated_at FROM tasks ORDER BY status`, [], (err, rows) => {
+    db.all(`SELECT id, description, status, created_at, updated_at, priority FROM tasks ORDER BY status`, [], (err, rows) => {
       if (err) {
         return console.error(err.message);
       }
@@ -79,7 +87,51 @@ function allTasks(callback) {
         } else {
             rows.forEach((row, index) => {
                 const statusSymbol = row.status === 'Completed' ? '✔️' : '❗';
-                console.log(`#${index + 1} ${row.description}`);
+                console.log(`#${index + 1} "${row.description}" | ${row.priority}`);
+                console.log(`   Status    : ${row.status} ${statusSymbol}`);
+                console.log(`   Created at: ${row.created_at}`);
+                console.log(`   Updated at: ${row.updated_at}`);
+                console.log('----------------------------------');
+            });
+        }
+    })
+  }
+
+  function allPriorityTasks() {
+    db.all(`SELECT id, description, status, created_at, updated_at, priority FROM tasks ORDER BY priority`, [], (err, rows) => {
+      if (err) {
+        return console.error(err.message);
+      }
+
+      console.log("========= Tasks List =========");
+        if (rows.length === 0) {
+            console.log('No task found');
+        } else {
+            rows.forEach((row, index) => {
+                const statusSymbol = row.status === 'Completed' ? '✔️' : '❗';
+                console.log(`#${index + 1} "${row.description}" | ${row.priority}`);
+                console.log(`   Status    : ${row.status} ${statusSymbol}`);
+                console.log(`   Created at: ${row.created_at}`);
+                console.log(`   Updated at: ${row.updated_at}`);
+                console.log('----------------------------------');
+            });
+        }
+    })
+  }
+
+  function allTodoTasks() {
+    db.all(`SELECT id, description, status, created_at, updated_at, priority FROM tasks WHERE status = 'ToDo'`, [], (err, rows) => {
+      if (err) {
+        return console.error(err.message);
+      }
+
+      console.log("========= Tasks List =========");
+        if (rows.length === 0) {
+            console.log('No task found');
+        } else {
+            rows.forEach((row, index) => {
+                const statusSymbol = row.status === 'Completed' ? '✔️' : '❗';
+                console.log(`#${index + 1} "${row.description}" | ${row.priority}`);
                 console.log(`   Status    : ${row.status} ${statusSymbol}`);
                 console.log(`   Created at: ${row.created_at}`);
                 console.log(`   Updated at: ${row.updated_at}`);
@@ -90,15 +142,34 @@ function allTasks(callback) {
   }
   
   function addTask(description) {
-    const sql = `INSERT INTO tasks (description, status) VALUES (?, ?)`;
+    const sql = `INSERT INTO tasks (description, status, priority) VALUES (?, ?, ?)`;
 
-    db.run(sql, [description, 'ToDo'], (err) => {
+    db.run(sql, [description, 'ToDo', 'no-priority'], (err) => {
         if (err) {
             return console.error(err.message);
         }
 
-        console.log('The task has been added to your list !');
+        console.log(`The task has been added to your list ! : ${description}`);
     })
+  }
+
+  function addPriority(taskIndex) {
+    db.get(`SELECT id FROM tasks LIMIT 1 OFFSET ?`, [taskIndex - 1], (err, row) => {
+      if (err) {
+          return console.error(err.message);
+      }
+      if (row) {
+          const sql = `UPDATE tasks SET priority = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+          db.run(sql, ['Priority', row.id], (err) => {
+              if (err) {
+                  return console.error(err.message);
+              }
+              console.log('The priority of the task has been changed : "priority" !');
+          });
+      } else {
+          console.log('Task not found!');
+      }
+    });
   }
   
   function deleteTask(taskIndex) {
@@ -120,23 +191,66 @@ function allTasks(callback) {
     });
   }
   
+  
   function markAsDone(taskIndex) {
-    db.get(`SELECT id FROM tasks LIMIT 1 OFFSET ?`, [taskIndex - 1], (err, row) => {
+    db.get(`SELECT id, status FROM tasks LIMIT 1 OFFSET ?`, [taskIndex - 1], (err, row) => {
       if (err) {
           return console.error(err.message);
       }
+      
       if (row) {
+        const newStatus = row.status === "ToDo" ? "Completed" : row.status === "Completed" ? "ToDo" : null;
+
+        if (newStatus) {
           const sql = `UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-          db.run(sql, ['Completed', row.id], (err) => {
-              if (err) {
-                  return console.error(err.message);
-              }
-              console.log('The status of the task has been changed : "completed" !');
+          db.run(sql, [newStatus, row.id], (err) => {
+            if (err) {
+              return console.error(err.message);
+            }
+            console.log(`The status of the task has been changed to ${newStatus} !`);
           });
+        } else {
+          console.log('No change made in the status of the task');
+        }
+        
+
       } else {
           console.log('Task not found!');
       }
     });
+  }
+
+  function searchTask(word) {
+    const sql = `SELECT * FROM tasks WHERE description LIKE ?`;
+    db.all(sql, [`%${word}%`], (err, rows) => {
+      if (err) {
+        return console.error(err.message);
+      }
+
+      console.log("========= Tasks List =========");
+        if (rows.length === 0) {
+            console.log('No task found');
+        } else {
+            rows.forEach((row, index) => {
+                const statusSymbol = row.status === 'Completed' ? '✔️' : '❗';
+                console.log(`#${index + 1} "${row.description}" | ${row.priority}`);
+                console.log(`   Status    : ${row.status} ${statusSymbol}`);
+                console.log(`   Created at: ${row.created_at}`);
+                console.log(`   Updated at: ${row.updated_at}`);
+                console.log('----------------------------------');
+            });
+        }
+    })
+  }
+
+
+  function startTaskManager() {
+    connexionDB();
+    checkTable();
+
+    setTimeout(() => {
+      taskManager();
+    }, 2000);
   }
 
   function taskManager() {
@@ -144,29 +258,52 @@ function allTasks(callback) {
     console.log(`-- Welcome to your task manager --
       Press to choose
       1. to see all your tasks
-      2. to add a task
-      3. to delete a task
-      4. to mark a task as done
-      5. to Exit the task manager`);
+      2. search a task
+      3. to add a task
+      4. to add a priority
+      5. to delete a task
+      6. change the status of a task
+      7. to exit the task manager`);
     console.log(`==============================`);
-    rl.question(`Press to choose (1-5) : `, (answer) => {
+    rl.question(`Press to choose (1-7) : `, (answer) => {
         switch (answer) {
           case '1':
-            rl.question('Do you want to display a sorted list ? (yes-no) : ', (answer) => {
-              if (answer.toLowerCase() === 'yes' || answer.toLowerCase() === 'y') {
-                allTaskSorted();
-                setTimeout(() => {
+            rl.question('Do you want to sort the task list ? ("status", "priority" or "no") : ', (choice) => {
+              switch (choice) {
+                case 'status':
+                  allTaskSorted();
+                  setTimeout(() => {
+                    taskManager();
+                  }, 2000);
+                  break;
+                case 'priority':
+                  allPriorityTasks();
+                  setTimeout(() => {
+                    taskManager();
+                  }, 2000);
+                  break;
+                case 'no':
+                  allTasks();
+                  setTimeout(() => {
+                    taskManager();
+                  }, 2000);
+                  break;
+                default:
+                  console.log('Invalid choice !');
                   taskManager();
-                }, 2000);
-              } else {
-                allTasks();
-                setTimeout(() => {
-                  taskManager();
-                }, 2000);
+                  break;
               }
             })
             break;
           case '2':
+            rl.question('Search a task : ', (word) => {
+              searchTask(word);
+              setTimeout(() => {
+                taskManager();
+              }, 3000);
+            })
+            break;
+          case '3':
             allTasks();
             setTimeout(() => {
               rl.question('Add your task : ', (description) => {
@@ -177,7 +314,18 @@ function allTasks(callback) {
               })
             }, 1000)
             break;
-          case '3':
+          case '4':
+            allTodoTasks();
+            setTimeout(() => {
+              rl.question('What tasks should be prioritized ? : ', (answer) => {
+                addPriority(answer);
+                setTimeout(() => {
+                  taskManager();
+                }, 1000)
+              })
+            }, 1000)
+            break;
+          case '5':
             allTasks();
             setTimeout(() => {
               rl.question('Delete your task : ', (taskIndex) => {
@@ -188,7 +336,7 @@ function allTasks(callback) {
               })
             }, 1000)
             break;
-          case '4':
+          case '6':
             allTasks();
             setTimeout(() => {
               rl.question('Mark as done your task : ', (taskIndex) => {
@@ -199,7 +347,7 @@ function allTasks(callback) {
               })
             }, 1000)
             break;
-          case '5':
+          case '7':
             // Fermer la connection à la db
             db.close((err) => {
               if (err) {
@@ -218,6 +366,4 @@ function allTasks(callback) {
       })
   }
 
-  setTimeout(() => {
-    taskManager();
-  }, 2000);
+startTaskManager();
