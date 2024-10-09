@@ -118,28 +118,6 @@ function allTasks(callback) {
         }
     })
   }
-
-  function allTodoTasks() {
-    db.all(`SELECT id, description, status, created_at, updated_at, priority FROM tasks WHERE status = 'ToDo'`, [], (err, rows) => {
-      if (err) {
-        return console.error(err.message);
-      }
-
-      console.log("========= Tasks List =========");
-        if (rows.length === 0) {
-            console.log('No task found');
-        } else {
-            rows.forEach((row, index) => {
-                const statusSymbol = row.status === 'Completed' ? '✔️' : '❗';
-                console.log(`#${index + 1} "${row.description}" | ${row.priority}`);
-                console.log(`   Status    : ${row.status} ${statusSymbol}`);
-                console.log(`   Created at: ${row.created_at}`);
-                console.log(`   Updated at: ${row.updated_at}`);
-                console.log('----------------------------------');
-            });
-        }
-    })
-  }
   
   function addTask(description) {
     const sql = `INSERT INTO tasks (description, status, priority) VALUES (?, ?, ?)`;
@@ -315,10 +293,10 @@ function allTasks(callback) {
             }, 1000)
             break;
           case '4':
-            allTodoTasks();
+            allTasks();
             setTimeout(() => {
-              rl.question('What tasks should be prioritized ? : ', (answer) => {
-                addPriority(answer);
+              rl.question('What tasks should be prioritized ? : ', (taskIndex) => {
+                addPriority(taskIndex);
                 setTimeout(() => {
                   taskManager();
                 }, 1000)
