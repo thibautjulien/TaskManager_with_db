@@ -13,8 +13,8 @@ Write in the terminal : " node main.js ". Then the task manager interface will b
 
 ## Features of the task manager
 
-[ x ] : See the task list (ability to sort tasks by status or priority).
-[ x ] : Add, edit, delete a task.
-[ x ] : Add a priority to the task.
-[ x ] : Change its status (achieved - not achieved).
-[ x ] : Search for a task in the list.
+- [ x ] : See the task list (ability to sort tasks by status or priority).
+- [ x ] : Add, edit, delete a task.
+- [ x ] : Add a priority to the task.
+- [ x ] : Change its status (achieved - not achieved).
+- [ x ] : Search for a task in the list.
